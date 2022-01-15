@@ -1,49 +1,71 @@
-type TypedArrayConstructor = Int8ArrayConstructor | Uint8ArrayConstructor | Uint8ClampedArrayConstructor | Int16ArrayConstructor | Uint16ArrayConstructor | Int32ArrayConstructor | Uint32ArrayConstructor | Float32ArrayConstructor | Float64ArrayConstructor | BigInt64ArrayConstructor | BigUint64ArrayConstructor;
-type TypedArray = Int8Array | Uint8Array | Uint8ClampedArray | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array | BigInt64Array | BigUint64Array;
+type TypedArrayConstructor =
+  Int8ArrayConstructor
+  | Uint8ArrayConstructor
+  | Uint8ClampedArrayConstructor
+  | Int16ArrayConstructor
+  | Uint16ArrayConstructor
+  | Int32ArrayConstructor
+  | Uint32ArrayConstructor
+  | Float32ArrayConstructor
+  | Float64ArrayConstructor
+  | BigInt64ArrayConstructor
+  | BigUint64ArrayConstructor;
+type TypedArray =
+  Int8Array
+  | Uint8Array
+  | Uint8ClampedArray
+  | Int16Array
+  | Uint16Array
+  | Int32Array
+  | Uint32Array
+  | Float32Array
+  | Float64Array
+  | BigInt64Array
+  | BigUint64Array;
 
 const calculateBytePadding = (currentBytes: number, elementSize: number) => {
   const modulusRemainder = currentBytes % elementSize
   return (modulusRemainder === 0) ? 0 : elementSize - modulusRemainder;
 }
 
-const getByteLength = <T extends TypedArrayConstructor | TypedArray>(typedArrays: Array<T>) => {
-  let largestChunkBytes = 0;
-  let totalByteLength = 0;
-  for (const { BYTES_PER_ELEMENT } of typedArrays) {
-    largestChunkBytes = Math.max(largestChunkBytes, BYTES_PER_ELEMENT);
-    totalByteLength += BYTES_PER_ELEMENT;
-  }
+const getBytesPerElement = ({ kind, length }: ArrayBufferParamValue) => length > 0 ? kind.BYTES_PER_ELEMENT : 0
 
-  return totalByteLength + calculateBytePadding(totalByteLength, largestChunkBytes);
+const getByteLength = (params: ArrayBufferParams): number => {
+  let largestByteCount = 0;
+  let totalByteLength = 0;
+  for (const arrayBuffer of Object.values(params)) {
+    largestByteCount = Math.max(largestByteCount, getBytesPerElement(arrayBuffer));
+    totalByteLength += arrayBuffer.kind.BYTES_PER_ELEMENT * arrayBuffer.length;
+  }
+  return totalByteLength + calculateBytePadding(totalByteLength, largestByteCount);
 }
 
-export const mkBuffer = <T extends TypedArrayConstructor>(typedArrayConstructors: Array<T>, length: number) => {
-  const bytesForStructure = getByteLength(typedArrayConstructors);
-  return new ArrayBuffer( bytesForStructure * length);
-};
+export const mkArrayBuffer = <T extends ArrayBufferParams>(params: T, count: number) =>
+  new ArrayBuffer(getByteLength(params) * count);
 
-  // const mkPutData = <T extends TypedArrayConstructor>(buffer: ArrayBuffer, dataStructure: Array<T>) => {
-  //   const dataLength = getBytesForStructure(dataStructure);
-  //
-  //   return (data: Array<T["prototype"]>, index: number) => {
-  //     data.reduce((byteOffset, next) => {
-  //       const padding = byteOffset % next.BYTES_PER_ELEMENT;
-  //       const bufferView = new next(buffer, byteOffset + padding, 1)[0])
-  //       return byteOffset + padding + next.BYTES_PER_ELEMENT;
-  //     }, dataLength * index)
-  //   };
-  // }
-
-export const mkGetData = <T extends TypedArrayConstructor>(buffer: ArrayBuffer, typedArrayConstructors: Array<T>) => {
-  const dataByteCount = getByteLength(typedArrayConstructors);
-  console.log(`Data length: ${dataByteCount}`);
-  return (index: number) => {
-    const typedArrayViews: Array<T["prototype"]> = [];
-    typedArrayConstructors.reduce((byteOffset, typedArrayConstructor) => {
-      const padding = byteOffset % typedArrayConstructor.BYTES_PER_ELEMENT;
-      typedArrayViews.push(new typedArrayConstructor(buffer, byteOffset + padding, 1))
-      return byteOffset + padding + typedArrayConstructor.BYTES_PER_ELEMENT;
-    }, dataByteCount * index)
-    return typedArrayViews;
+export const mkGetData = <T extends ArrayBufferParams>(buffer: ArrayBuffer | SharedArrayBuffer, params: T) => {
+  const bytesForObject = getByteLength(params);
+  return (index: number): Response<T> => {
+    let byteOffset = bytesForObject * index;
+    return Object.entries(params).reduce<Response<T>>((acc, [key, arrayBuffer]) => {
+      const bytesPerElement = getBytesPerElement(arrayBuffer)
+      const padding = byteOffset % bytesPerElement;
+      console.log(`${key}: ${bytesPerElement} bytes per element, ${arrayBuffer.length} elements, ${padding} padding, total: ${bytesPerElement * arrayBuffer.length + padding}. current byte offset: ${byteOffset}`);
+      acc[key as keyof T] = new arrayBuffer.kind(buffer, byteOffset + padding, arrayBuffer.length);
+      // TODO: this offset is too low, it's ${previousBuffer.BytesPerElement} too short?
+      byteOffset += padding + (bytesPerElement * arrayBuffer.length);
+      return acc;
+    }, {} as Response<T>); // TODO: is it possible not to cast?
   };
 }
+
+interface ArrayBufferParamValue {
+  kind: TypedArrayConstructor,
+  length: number;
+}
+
+export type ArrayBufferParams = Record<string, ArrayBufferParamValue>
+
+type Response<T extends ArrayBufferParams> = {
+  [x in keyof T]: TypedArray;
+};
