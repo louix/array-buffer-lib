@@ -1,0 +1,21 @@
+{
+  "include": ["index.tsx","src"],
+  "compilerOptions": {
+    "module": "esnext",
+    "target": "esnext",
+    "moduleResolution": "node",
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "experimentalDecorators": true,
+    "baseUrl": "./",
+    "outDir": "./dist",                              /* Redirect output structure to the directory. */
+    "paths": {},
+    "noEmit": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "importsNotUsedAsValues": "error"
+  }
+}
