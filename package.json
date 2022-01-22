@@ -1,17 +1,9 @@
 {
-  "name": "worker-test",
-  "source": "index.html",
+  "name": "array-buffer-lib",
+  "main": "src/index.ts",
   "scripts": {
-    "start": "parcel"
-  },
-  "dependencies": {
-    "react": "17.0.2",
-    "react-dom": "17.0.2"
   },
   "devDependencies": {
-    "@types/react": "17.0.38",
-    "@types/react-dom": "17.0.11",
-    "parcel": "2.2.0",
     "typescript": "4.5.4"
   }
 }
