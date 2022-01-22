@@ -29,15 +29,15 @@ const isNumberConstructor = (t: TypedArrayConstructor): t is (Exclude<TypedArray
   !isBigIntConstructor(t)
 
 // Turn bytes into the offset used in `new TypedArray().set(values, offset)`
-const bytesToBufferOffset = (buffer: TypedArray | TypedArrayConstructor, bytes: number) => {
-  const padding = calculateBytePadding(bytes, buffer.BYTES_PER_ELEMENT);
-  return (bytes + padding) / buffer.BYTES_PER_ELEMENT;
+export const bytesToTypedArrayOffset = (typedArray: TypedArray | TypedArrayConstructor, bytes: number) => {
+  const padding = calculateBytePadding(bytes, typedArray.BYTES_PER_ELEMENT);
+  return (bytes + padding) / typedArray.BYTES_PER_ELEMENT;
 }
 
 export const debugFillBuffer = (buffer: ArrayBuffer, arrayBufferObject: ArrayBufferParams) => {
   let lastOffset = 0;
   Object.values(arrayBufferObject).forEach(({ kind, length }) => {
-    const x = bytesToBufferOffset(kind, lastOffset);
+    const x = bytesToTypedArrayOffset(kind, lastOffset);
     if (isBigIntConstructor(kind)) {
       const arr = Array.from({ length }).map((_, i) => BigInt(i + 1));
       new kind(buffer).set(arr, x)
@@ -50,21 +50,22 @@ export const debugFillBuffer = (buffer: ArrayBuffer, arrayBufferObject: ArrayBuf
   })
 }
 
-const calculateBytePadding = (currentBytes: number, elementSize: number) => {
+export const calculateBytePadding = (currentBytes: number, elementSize: number) => {
   const modulusRemainder = currentBytes % elementSize
   return (modulusRemainder === 0) ? 0 : elementSize - modulusRemainder;
 }
 
-const getBytesPerElement = ({ kind, length }: ArrayBufferParamValue) => length > 0 ? kind.BYTES_PER_ELEMENT : 0
+export const getBytesPerElement = ({ kind, length }: ArrayBufferParamValue) => length > 0 ? kind.BYTES_PER_ELEMENT : 0
 
-const getByteLength = (params: ArrayBufferParams): number => {
-  let largestByteCount = 0;
+export const getByteLength = (params: ArrayBufferParams): number => {
+  let largestByteCount = 1;
   let totalByteLength = 0;
   for (const arrayBuffer of Object.values(params)) {
     largestByteCount = Math.max(largestByteCount, getBytesPerElement(arrayBuffer));
     totalByteLength += arrayBuffer.kind.BYTES_PER_ELEMENT * arrayBuffer.length;
   }
-  return totalByteLength + calculateBytePadding(totalByteLength, largestByteCount);
+  const padding = calculateBytePadding(totalByteLength, largestByteCount)
+  return totalByteLength + padding;
 }
 
 export const mkArrayBuffer = <T extends ArrayBufferParams>(params: T, count: number) => {
