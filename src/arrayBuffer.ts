@@ -72,6 +72,11 @@ export const mkArrayBuffer = <T extends ArrayBufferParams>(params: T, count: num
   return new ArrayBuffer(bytes);
 };
 
+export const mkSharedArrayBuffer = <T extends ArrayBufferParams>(params: T, count: number) => {
+  const bytes = getByteLength(params) * count;
+  return new SharedArrayBuffer(bytes);
+};
+
 export const mkAccessData = <T extends ArrayBufferParams>(buffer: ArrayBuffer | SharedArrayBuffer, params: T) => {
   const bytesForObject = getByteLength(params);
   return (index: number): Response<T> => {
