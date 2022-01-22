@@ -42,7 +42,6 @@ export const debugFillBuffer = (buffer: ArrayBuffer, arrayBufferObject: ArrayBuf
       const arr = Array.from({ length }).map((_, i) => BigInt(i + 1));
       new kind(buffer).set(arr, x)
     } else {
-      console.log(lastOffset, x);
       const arr = Array.from({ length }).map((_, i) => i + 1);
       new kind(buffer).set(arr, x)
     }
@@ -70,7 +69,6 @@ export const getByteLength = (params: ArrayBufferParams): number => {
 
 export const mkArrayBuffer = <T extends ArrayBufferParams>(params: T, count: number) => {
   const bytes = getByteLength(params) * count;
-  console.log("[mkArrayBuffer] bytes");
   return new ArrayBuffer(bytes);
 };
 
