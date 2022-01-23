@@ -1,3 +1,5 @@
+import * as AB from "./index";
+
 type TypedArrayConstructor =
   Int8ArrayConstructor
   | Uint8ArrayConstructor
@@ -27,6 +29,10 @@ const isBigIntConstructor = (t: TypedArrayConstructor): t is (BigInt64ArrayConst
   t.prototype instanceof BigInt64Array || t.prototype instanceof BigUint64Array
 const isNumberConstructor = (t: TypedArrayConstructor): t is (Exclude<TypedArrayConstructor, BigInt64ArrayConstructor | BigUint64ArrayConstructor>) =>
   !isBigIntConstructor(t)
+
+const isBigIntArray = (t: TypedArray): t is (BigInt64Array | BigUint64Array) =>
+  t instanceof BigInt64Array || t instanceof BigUint64Array
+
 
 // Turn bytes into the offset used in `new TypedArray().set(values, offset)`
 export const bytesToTypedArrayOffset = (typedArray: TypedArray | TypedArrayConstructor, bytes: number) => {
@@ -79,16 +85,48 @@ export const mkSharedArrayBuffer = <T extends ArrayBufferParams>(params: T, coun
 
 export const mkAccessData = <T extends ArrayBufferParams>(buffer: ArrayBuffer | SharedArrayBuffer, params: T) => {
   const bytesForObject = getByteLength(params);
-  return (index: number): Response<T> => {
+  return (index: number): DataAccess<T> => {
     let byteOffset = bytesForObject * index;
-    return Object.entries(params).reduce<Response<T>>((acc, [key, arrayBuffer]) => {
+    return Object.entries(params).reduce<DataAccess<T>>((acc, [key, arrayBuffer]) => {
       const bytesPerElement = getBytesPerElement(arrayBuffer)
       const padding = calculateBytePadding(byteOffset, bytesPerElement);
       acc[key as keyof T] = new arrayBuffer.kind(buffer, byteOffset + padding, arrayBuffer.length);
       byteOffset += padding + (bytesPerElement * arrayBuffer.length);
       return acc;
-    }, {} as Response<T>); // TODO: is it possible not to cast?
+    }, {} as DataAccess<T>); // TODO: is it possible not to cast?
   };
+}
+
+export const mkProxy = <T extends ArrayBufferParams>(accessData: (index: number) => DataAccess<T>, entityCount: number) => {
+  const target: Array<ProxyType<T>> = []
+  const handler = {
+    get: (_: Array<T>, index: number) => {
+      if (index >= 0 && index < entityCount) {
+        const data = accessData(index);
+        return Object.entries(data).reduce<ProxyType<T>>((acc, [key, value]) => {
+          // @ts-ignore // TODO: fix this! bigint !== number
+          acc[key as keyof T] = Array.from(value);
+          return acc
+        }, {} as ProxyType<T>)
+      }
+    },
+    set: (_: Array<T>, index: number, value: ProxyType<T>) => {
+      if (index >= 0 && index < entityCount) {
+        const data = accessData(index);
+        return Object.entries(value).reduce<undefined>((acc, [key, value]) => {
+          const arrayBuffer = data[key];
+          // TODO: handle this with types?
+          // @ts-ignore
+          arrayBuffer.set(value);
+          return undefined
+        }, undefined)
+      } else {
+        // TODO: nicer error message
+        throw "index out of bounds!"
+      }
+    }
+  }
+  return new Proxy(target, handler);
 }
 
 interface ArrayBufferParamValue {
@@ -98,6 +136,10 @@ interface ArrayBufferParamValue {
 
 export type ArrayBufferParams = Record<string, ArrayBufferParamValue>
 
-type Response<T extends ArrayBufferParams> = {
+export type DataAccess<T extends ArrayBufferParams> = {
   [x in keyof T]: T[x]["kind"]["prototype"];
+};
+
+type ProxyType<T extends AB.ArrayBufferParams> = {
+  [k in keyof T]: Array<number> | Array<bigint>;
 };

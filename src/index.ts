@@ -1,1 +1,2 @@
-export { mkArrayBuffer, mkSharedArrayBuffer, mkAccessData, debugFillBuffer, ArrayBufferParams } from "./arrayBuffer"
+export { mkArrayBuffer, mkSharedArrayBuffer, mkAccessData, mkProxy, debugFillBuffer } from "./arrayBuffer"
+export type { ArrayBufferParams, DataAccess } from "./arrayBuffer";
